@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" role="img" aria-labelledby="title desc">
+  <title id="title">School water point assessment illustration</title>
+  <desc id="desc">Illustration of a rural school water point with a test station, water tap, and survey checklist.</desc>
+  <rect width="1200" height="640" fill="#eef1e8"/>
+  <path d="M0 400 255 278l250 105 252-164 443 188v233H0z" fill="#dce5d8"/>
+  <path d="M0 472 284 363l267 111 258-138 391 126v200H0z" fill="#c9d8c8"/>
+  <rect x="118" y="181" width="657" height="332" rx="8" fill="#f7f3e8" stroke="#ded5c4" stroke-width="6"/>
+  <path d="m88 203 354-172 358 172v38H88z" fill="#4a2a68"/>
+  <path d="M133 207 442 56l310 151" fill="none" stroke="#f0c84b" stroke-width="10"/>
+  <rect x="171" y="270" width="125" height="124" rx="5" fill="#cedde0" stroke="#b6c8cc" stroke-width="6"/>
+  <rect x="344" y="270" width="125" height="124" rx="5" fill="#cedde0" stroke="#b6c8cc" stroke-width="6"/>
+  <rect x="517" y="270" width="125" height="124" rx="5" fill="#cedde0" stroke="#b6c8cc" stroke-width="6"/>
+  <path d="M232 270v124m173-124v124m173-124v124" stroke="#f7f3e8" stroke-width="8"/>
+  <rect x="692" y="373" width="220" height="143" rx="8" fill="#f5f0e4" stroke="#d7cebd" stroke-width="5"/>
+  <rect x="731" y="401" width="79" height="86" rx="10" fill="#d8e5e5" stroke="#718b8e" stroke-width="5"/>
+  <path d="M751 401v-17q0-12 13-12h14q13 0 13 12v17m-36 37h34m-34 18h34" fill="none" stroke="#4a2a68" stroke-width="6" stroke-linecap="round"/>
+  <path d="M810 432h37v25h-37m37 0v14" fill="none" stroke="#647d82" stroke-width="6" stroke-linejoin="round"/>
+  <path d="M840 479q0 15 11 15t11-15" fill="#57a7b3"/>
+  <rect x="945" y="216" width="171" height="226" rx="10" fill="#fff" stroke="#ded8e5" stroke-width="5"/>
+  <path d="M978 270h104M978 300h82M978 330h92M978 360h65" stroke="#d4ced9" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="978" cy="402" r="10" fill="#6aa57b"/>
+  <path d="m973 402 4 5 9-11" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M0 518h1200v122H0z" fill="#eee9db"/>
+  <path d="M95 557h220m32 0h150m36 0h166m32 0h183" stroke="#d2cbbd" stroke-width="5" stroke-linecap="round"/>
+</svg>

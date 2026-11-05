@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" role="img" aria-labelledby="title desc">
+  <title id="title">School installation site illustration</title>
+  <desc id="desc">Illustration of a prepared school utility room with marked installation area, plumbing access, and water filtration equipment plan.</desc>
+  <rect width="1200" height="640" fill="#f2eee5"/>
+  <path d="M0 0h1200v433H0z" fill="#f8f5ed"/>
+  <path d="M0 434h1200v206H0z" fill="#d9d4ca"/>
+  <path d="M0 452h1200" stroke="#c6c0b5" stroke-width="8"/>
+  <rect x="95" y="105" width="1010" height="328" rx="8" fill="#f0ece3" stroke="#d8d0c3" stroke-width="6"/>
+  <rect x="156" y="162" width="245" height="177" rx="4" fill="#dce8e7" stroke="#b8c8c8" stroke-width="7"/>
+  <path d="M278 162v177m-122-88h245" stroke="#f8f5ed" stroke-width="8"/>
+  <path d="M190 232q34-37 68 0t68 0" fill="none" stroke="#6ca9b0" stroke-width="7"/>
+  <rect x="470" y="157" width="227" height="264" rx="9" fill="#fff" stroke="#d8d0c3" stroke-width="6"/>
+  <rect x="506" y="194" width="154" height="48" rx="4" fill="#4a2a68"/>
+  <path d="M529 218h108" stroke="#f0c84b" stroke-width="8" stroke-linecap="round"/>
+  <rect x="511" y="266" width="146" height="111" rx="10" fill="#dbe7e7" stroke="#779297" stroke-width="6"/>
+  <path d="M532 266v-20q0-13 13-13h12q13 0 13 13v20m26 0v-20q0-13 13-13h12q13 0 13 13v20" fill="none" stroke="#4a2a68" stroke-width="6"/>
+  <path d="M535 303h97m-97 24h97m-97 24h97" stroke="#9db6b8" stroke-width="5" stroke-linecap="round"/>
+  <path d="M657 303h76v60h89v-40h78" fill="none" stroke="#718b8e" stroke-width="8" stroke-linejoin="round"/>
+  <path d="M900 323h24v-52h89v85h-13" fill="none" stroke="#718b8e" stroke-width="8" stroke-linejoin="round"/>
+  <rect x="801" y="164" width="203" height="94" rx="6" fill="#fff" stroke="#e1dce4" stroke-width="5"/>
+  <path d="M829 192h147m-147 24h104" stroke="#d6d0dc" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="832" cy="239" r="8" fill="#6aa57b"/>
+  <path d="m828 239 4 4 7-9" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <rect x="135" y="469" width="932" height="114" rx="8" fill="#f8f5ed" stroke="#d1cabd" stroke-width="5"/>
+  <path d="M178 511h139m38 0h196m39 0h142m39 0h214" stroke="#c9c1b4" stroke-width="7" stroke-linecap="round"/>
+  <path d="M179 547h219m38 0h154m39 0h244" stroke="#e2dacf" stroke-width="7" stroke-linecap="round"/>
+</svg>
