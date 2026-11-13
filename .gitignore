@@ -9,6 +9,12 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 
+# Editor, test, and local artifact directories
+.idea/
+.playwright-cli/
+_build/
+output/
+
 # Foundry output
 contracts/out/
 contracts/cache/
@@ -18,3 +24,4 @@ broadcast/
 .env
 .env.*
 !.env.example
+!.env.product

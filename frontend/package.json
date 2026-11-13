@@ -5,12 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:product": "vite --mode product",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",
     "antd": "^6.7.0",
+    "ethers": "^6.17.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

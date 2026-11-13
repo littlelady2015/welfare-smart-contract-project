@@ -15,6 +15,9 @@ contract WelfareFund {
     uint256 public donorCount;
     uint256 public totalReceived;
     uint256 public proposedAmount;
+    string public proposedPurpose;
+    bytes32 public proposedApprovalMaterialHash;
+    string public proposedApprovalMaterialUri;
     uint256 public currentProposalId;
     uint256 public approvalsForCurrentTranche;
     uint256 public oppositionsForCurrentTranche;
@@ -33,7 +36,10 @@ contract WelfareFund {
         uint256 indexed proposalId,
         uint256 indexed tranche,
         address indexed recipient,
-        uint256 amount
+        uint256 amount,
+        string purpose,
+        bytes32 approvalMaterialHash,
+        string approvalMaterialUri
     );
     event PayoutApproved(uint256 indexed proposalId, uint256 indexed tranche, address indexed donor);
     event PayoutOpposed(uint256 indexed proposalId, uint256 indexed tranche, address indexed donor);
@@ -82,21 +88,41 @@ contract WelfareFund {
 
     function proposePayout(
         address payable recipient,
-        uint256 amount
+        uint256 amount,
+        string calldata purpose,
+        bytes32 approvalMaterialHash,
+        string calldata approvalMaterialUri
     ) external onlyManager nonReentrant {
         require(phase == Phase.Funding, "previous tranche incomplete");
         require(donorCount > 0, "no donors");
         require(recipient != address(0), "zero recipient");
         require(amount > 0 && amount <= address(this).balance, "invalid amount");
+        require(bytes(purpose).length > 0 && bytes(purpose).length <= 280, "invalid purpose");
+        require(approvalMaterialHash != bytes32(0), "missing approval material");
+        require(
+            bytes(approvalMaterialUri).length > 0 && bytes(approvalMaterialUri).length <= 512,
+            "invalid material uri"
+        );
 
         proposedRecipient = recipient;
         proposedAmount = amount;
+        proposedPurpose = purpose;
+        proposedApprovalMaterialHash = approvalMaterialHash;
+        proposedApprovalMaterialUri = approvalMaterialUri;
         currentProposalId += 1;
         approvalsForCurrentTranche = 0;
         oppositionsForCurrentTranche = 0;
         votesForCurrentTranche = 0;
         phase = Phase.AwaitingApproval;
-        emit PayoutProposed(currentProposalId, currentTranche, recipient, amount);
+        emit PayoutProposed(
+            currentProposalId,
+            currentTranche,
+            recipient,
+            amount,
+            purpose,
+            approvalMaterialHash,
+            approvalMaterialUri
+        );
     }
 
     function approvePayout() external nonReentrant {
@@ -145,6 +171,9 @@ contract WelfareFund {
             phase = Phase.Funding;
             proposedAmount = 0;
             proposedRecipient = payable(address(0));
+            delete proposedPurpose;
+            delete proposedApprovalMaterialHash;
+            delete proposedApprovalMaterialUri;
             approvalsForCurrentTranche = 0;
             oppositionsForCurrentTranche = 0;
             votesForCurrentTranche = 0;
@@ -175,6 +204,9 @@ contract WelfareFund {
         currentTranche = completedTranche + 1;
         proposedAmount = 0;
         proposedRecipient = payable(address(0));
+        delete proposedPurpose;
+        delete proposedApprovalMaterialHash;
+        delete proposedApprovalMaterialUri;
         approvalsForCurrentTranche = 0;
         oppositionsForCurrentTranche = 0;
         votesForCurrentTranche = 0;

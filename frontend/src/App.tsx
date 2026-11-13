@@ -24,6 +24,17 @@ import {
   type DonorNotification,
   type DonorRecord,
 } from './donorStore'
+import {
+  formatUsdFromEth,
+  phaseLabel,
+  shortAddress,
+  useLocalChainFund,
+  WELFARE_FUND_ADDRESS,
+  walletLabel,
+  type ChainSnapshot,
+} from './chain'
+import { approvalMaterialHref } from './approvalMaterialStore'
+import { WalletDonationPanel } from './WalletDonationPanel'
 
 type Workspace = 'donors' | 'projects' | 'approval-flow' | 'contract'
 type Vote = 'approve' | 'oppose' | null
@@ -46,11 +57,11 @@ const workspaceCopy: Record<Workspace, { eyebrow: string; title: string; descrip
   },
   projects: {
     eyebrow: 'PORTFOLIO',
-    title: 'Funding projects',
+    title: 'Funding project',
     description: 'Track project funding, milestones, and donor communications.',
   },
   'approval-flow': {
-    eyebrow: 'RELEASE GATE · TRANCHE 02',
+    eyebrow: 'RELEASE GATE · CURRENT TRANCHE',
     title: 'Approval flow',
     description: 'A tranche advances only when both shareholder vote thresholds are met.',
   },
@@ -101,6 +112,8 @@ const proposedExpenses = [
 ]
 
 function App() {
+  const wallet = useLocalChainFund()
+  const isProductMode = !wallet.isLocalDemoWallet
   const [activeWorkspace, setActiveWorkspace] = useState<Workspace>('projects')
   const [accountRole, setAccountRole] = useState<AccountRole>('admin')
   const [selectedAccountRole, setSelectedAccountRole] = useState<AccountRole>('largest-donor')
@@ -132,6 +145,13 @@ function App() {
   const proposalRejected = donors.length > 0 && (
     oppositionCount * 100 >= donors.length * 30 || (allDonorsVoted && !approvalThresholdMet)
   )
+  const walletRoleLabel = !wallet.account
+    ? 'Wallet not connected'
+    : wallet.isManager
+      ? 'Project manager'
+      : wallet.snapshot?.isDonor
+        ? 'Registered donor'
+        : 'Connected wallet'
 
   useEffect(() => {
     let active = true
@@ -159,6 +179,10 @@ function App() {
   }
 
   async function notifyDonors() {
+    if (!wallet.isManager) {
+      setToast('Only the project manager can notify donor accounts.')
+      return
+    }
     if (!databaseReady) {
       setToast('The local donor database is still loading.')
       return
@@ -194,9 +218,24 @@ function App() {
     }
   }
 
-  const visibleNavigation = accountRole === 'admin'
+  const canManageProject = wallet.isManager
+  const visibleNavigation = canManageProject
     ? navigation
-    : navigation.filter((item) => item.id === 'donors')
+    : navigation.filter((item) => item.id === 'projects')
+
+  useEffect(() => {
+    if (!visibleNavigation.some((item) => item.id === activeWorkspace)) {
+      setActiveWorkspace('projects')
+    }
+  }, [activeWorkspace, canManageProject])
+
+  useEffect(() => {
+    document.title = wallet.isManager
+      ? 'GoodFund | Manager workspace'
+      : wallet.snapshot?.isDonor
+        ? 'GoodFund | Donor workspace'
+        : 'GoodFund | Funding project'
+  }, [wallet.isManager, wallet.snapshot?.isDonor])
 
   function openAccountLogin() {
     setSelectedAccountRole(accountRole === 'admin' ? 'largest-donor' : 'admin')
@@ -229,23 +268,41 @@ function App() {
               onClick={() => setActiveWorkspace(item.id)}
             >
               {accountRole === 'largest-donor' ? 'My notifications' : item.label}
-              {item.id === 'donors' && donors.length > 0 && <span className="nav-count">{donors.length}</span>}
+              {item.id === 'donors' && (wallet.snapshot?.donorCount ?? 0) > 0 && (
+                <span className="nav-count">{wallet.snapshot?.donorCount}</span>
+              )}
             </Button>
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="chain-card"><span className="chain-indicator" /><span><strong>Sepolia testnet</strong><small>Connected network</small></span></div>
-          <Button type="text" className="profile-row" aria-label="Switch account or sign in as another user" onClick={openAccountLogin}>
-            <span className="profile-avatar">{accountRole === 'admin' ? 'MC' : largestDonor?.initials ?? 'D'}</span>
-            <span><strong>{accountRole === 'admin' ? 'Mei Chen' : largestDonor?.name ?? 'Largest donor'}</strong><small>{accountRole === 'admin' ? 'Administrator' : 'Largest donor'}</small></span>
-            <ArrowRightOutlined className="profile-chevron" />
-          </Button>
+          <div className={`chain-card ${wallet.isCorrectNetwork ? 'is-live' : ''}`}>
+            <span className="chain-indicator" />
+            <span>
+              <strong>{wallet.isCorrectNetwork ? 'Localhost 31337' : 'Local network'}</strong>
+              <small>{wallet.account ? shortAddress(wallet.account) : 'Anvil · wallet not connected'}</small>
+            </span>
+          </div>
+          {wallet.isLocalDemoWallet ? (
+            <Button type="text" className="profile-row" aria-label="Switch account or sign in as another user" onClick={openAccountLogin}>
+              <span className="profile-avatar">{accountRole === 'admin' ? 'MC' : largestDonor?.initials ?? 'D'}</span>
+              <span><strong>{accountRole === 'admin' ? 'Mei Chen' : largestDonor?.name ?? 'Largest donor'}</strong><small>{accountRole === 'admin' ? 'Administrator' : 'Largest donor'}</small></span>
+              <ArrowRightOutlined className="profile-chevron" />
+            </Button>
+          ) : (
+            <div className="profile-row wallet-profile-row">
+              <span className="profile-avatar">{wallet.account ? 'W' : '—'}</span>
+              <span>
+                <strong>{wallet.account ? walletLabel(wallet.account) : 'Browser wallet'}</strong>
+                <small>{wallet.account ? `${walletRoleLabel} · ${shortAddress(wallet.account)}` : walletRoleLabel}</small>
+              </span>
+            </div>
+          )}
         </div>
       </aside>
 
       <Modal
         className="account-login-modal"
-        open={accountLoginOpen}
+        open={wallet.isLocalDemoWallet && accountLoginOpen}
         title={<div><p className="eyebrow">GOODFUND DEMO</p><h2>Sign in as another user</h2><p className="account-modal-subtitle">Choose an account to continue in this prototype.</p></div>}
         onCancel={() => setAccountLoginOpen(false)}
         footer={[
@@ -271,19 +328,41 @@ function App() {
       <main className="main-area" id="workspace">
         <header className="topbar">
           <div className="breadcrumb"><span>GoodFund</span><i>/</i><strong>{page.title}</strong></div>
-          <div className="topbar-actions"><span className="demo-label">DEMO</span><Button className="wallet-button" icon={<ArrowRightOutlined />} onClick={() => setToast('Wallet connection is not enabled in this prototype.')}>Connect wallet</Button></div>
+          <div className="topbar-actions">
+            <span className="demo-label">LIVE LOCAL CHAIN</span>
+            <Button
+              className="wallet-button"
+              icon={<ArrowRightOutlined />}
+              loading={wallet.connecting}
+              onClick={() => void wallet.connect()}
+            >
+              {wallet.account ? shortAddress(wallet.account) : 'Connect wallet'}
+            </Button>
+          </div>
         </header>
 
         <div className="page-content">
           <div className="page-heading">
             <div><p className="eyebrow">{page.eyebrow}</p><h1>{page.title}</h1><p className="subtitle">{page.description}</p></div>
-            {activeWorkspace === 'projects' && <Button type="primary" className="primary-button" icon={<BellOutlined />} onClick={notifyDonors}>Notify donors</Button>}
+            {activeWorkspace === 'projects' && canManageProject && wallet.isLocalDemoWallet && (
+              <Button type="primary" className="primary-button" icon={<BellOutlined />} onClick={notifyDonors}>
+                Notify donors
+              </Button>
+            )}
           </div>
 
           {toast && <Alert className="toast" type="info" showIcon closable message={toast} onClose={() => setToast('')} />}
           {databaseError && <Alert className="toast" type="error" showIcon message={databaseError} />}
-          {activeWorkspace === 'projects' && accountRole === 'admin' && <ProjectsView onNotify={notifyDonors} />}
-          {activeWorkspace === 'donors' && databaseReady && (
+          {activeWorkspace === 'projects' && <WalletDonationPanel wallet={wallet} />}
+          {activeWorkspace === 'projects' && (!wallet.isLocalDemoWallet || accountRole === 'admin') && (
+            <ProjectsView
+              canManage={canManageProject}
+              canNotify={canManageProject && wallet.isLocalDemoWallet}
+              onNotify={notifyDonors}
+              snapshot={wallet.snapshot}
+            />
+          )}
+          {activeWorkspace === 'donors' && !isProductMode && databaseReady && (
             <DonorsView
               role={accountRole}
               donors={donors}
@@ -293,9 +372,15 @@ function App() {
               onDecision={handleDonorDecision}
             />
           )}
-          {activeWorkspace === 'donors' && !databaseReady && !databaseError && <Card className="panel loading-panel">Loading local donor records…</Card>}
+          {activeWorkspace === 'donors' && isProductMode && <LiveDonorsView snapshot={wallet.snapshot} />}
+          {activeWorkspace === 'donors' && !isProductMode && !databaseReady && !databaseError && <Card className="panel loading-panel">Loading local donor records…</Card>}
           {activeWorkspace === 'approval-flow' && (
-            <ApprovalFlowView
+            isProductMode ? (
+              <LiveApprovalFlowView
+                snapshot={wallet.snapshot}
+                onOpenContract={() => setActiveWorkspace('contract')}
+              />
+            ) : <ApprovalFlowView
               donors={donors}
               notifications={currentNotifications}
               votes={votes}
@@ -310,7 +395,11 @@ function App() {
               onOpenContract={() => setActiveWorkspace('contract')}
             />
           )}
-          {activeWorkspace === 'contract' && <ContractView approvalCount={approvalCount} oppositionCount={oppositionCount} donorCount={donors.length} />}
+          {activeWorkspace === 'contract' && (
+            isProductMode
+              ? <LiveContractView snapshot={wallet.snapshot} />
+              : <ContractView approvalCount={approvalCount} oppositionCount={oppositionCount} donorCount={donors.length} />
+          )}
 
           <footer className="page-footer"><span>GoodFund · Transparent giving, accountable delivery.</span><a href="/api/v1/health" target="_blank" rel="noreferrer">API status <ArrowRightOutlined /></a></footer>
         </div>
@@ -319,36 +408,320 @@ function App() {
   )
 }
 
-function ProjectsView({ onNotify }: { onNotify: () => void }) {
+function ProjectsView({
+  canManage,
+  canNotify,
+  onNotify,
+  snapshot,
+}: {
+  canManage: boolean
+  canNotify: boolean
+  onNotify: () => void
+  snapshot: ChainSnapshot | null
+}) {
+  const donorCount = snapshot?.donorCount ?? 0
+  const votes = snapshot?.votes ?? 0
+  const participationPercent = donorCount > 0 ? Math.round((votes / donorCount) * 100) : 0
+  const currentTranche = snapshot?.currentTranche ?? 0
+  const rejection = canManage && snapshot?.latestRejection?.tranche === currentTranche
+    && !snapshot.hasActiveProposal
+    ? snapshot.latestRejection
+    : null
+  const releaseStatus = (tranche: number) => {
+    if (!snapshot) return <Tag>Loading</Tag>
+    if (tranche < currentTranche) return <Tag color="success">Completed</Tag>
+    if (tranche === currentTranche) return <Tag color="gold">Current</Tag>
+    return <Tag>Queued</Tag>
+  }
+
   return (
     <>
-      <section className="summary-grid" aria-label="Funding summary">
-        <Card className="summary-card summary-highlight"><span className="summary-label">Total raised</span><Statistic value={128400} prefix="$" /><span className="summary-foot">Across 24 donors</span></Card>
-        <Card className="summary-card"><span className="summary-label">Released</span><Statistic value={32000} prefix="$" /><span className="summary-foot">1 tranche completed</span></Card>
-        <Card className="summary-card"><span className="summary-label">Awaiting approval</span><Statistic value={1} suffix=" tranche" /><span className="summary-foot">1 of 3 sample voters approved</span></Card>
+      {rejection && (
+        <Alert
+          className="rejection-notice"
+          type="error"
+          showIcon
+          message={`Payout proposal #${rejection.proposalId} was rejected`}
+          description={(
+            <div className="rejection-notice-copy">
+              <span>{rejection.purpose} · {formatUsdFromEth(rejection.amountEth)}</span>
+              <span>Final vote: {rejection.approvals} yes · {rejection.oppositions} no.</span>
+              <span>
+                {rejection.oppositions * 100 >= donorCount * 30
+                  ? 'Opposition reached or exceeded 30%.'
+                  : 'Voting ended without approval above 50%.'}
+                {' '}The manager can submit a revised proposal.
+              </span>
+              <code>{rejection.transactionHash}</code>
+            </div>
+          )}
+        />
+      )}
+      <section className="summary-grid" aria-label="On-chain funding summary">
+        <Card className="summary-card summary-highlight"><span className="summary-label">Contract balance</span><Statistic value={formatUsdFromEth(snapshot?.balanceEth)} /><span className="summary-foot">Live Anvil balance · {snapshot?.balanceEth ?? '—'} test ETH</span></Card>
+        <Card className="summary-card"><span className="summary-label">Total received</span><Statistic value={formatUsdFromEth(snapshot?.totalReceivedEth)} /><span className="summary-foot">Recorded by the contract · {snapshot?.totalReceivedEth ?? '—'} test ETH</span></Card>
+        <Card className="summary-card"><span className="summary-label">Project state</span><Statistic value={phaseLabel(snapshot?.phase)} /><span className="summary-foot">Current tranche {snapshot ? String(snapshot.currentTranche).padStart(2, '0') : '—'}</span></Card>
       </section>
 
       <Card className="panel project-panel" bordered>
         <div className="panel-heading">
-          <div className="project-title-wrap"><span className="project-symbol">WF</span><div><p className="eyebrow">ACTIVE PROJECT · PF-2025-018</p><h2>Mountain School Water Access</h2><p className="panel-subtitle">Clean water infrastructure for three rural schools.</p></div></div>
-          <Tag className="status-pill" color="success" icon={<CheckCircleFilled />}>Active</Tag>
+          <div className="project-title-wrap"><span className="project-symbol">WF</span><div><p className="eyebrow">DEMO PROJECT · PF-2025-018</p><h2>Mountain School Water Access</h2><p className="panel-subtitle">Single-project MVP using live local-chain transactions.</p></div></div>
+          <Tag className="status-pill" color={snapshot?.phase === 2 ? 'success' : 'gold'} icon={<CheckCircleFilled />}>{phaseLabel(snapshot?.phase)}</Tag>
         </div>
         <div className="project-progress">
-          <div className="progress-copy"><span>Fundraising progress</span><strong>$128,400 <small>of $180,000</small></strong></div>
-          <Progress percent={71} showInfo={false} strokeColor="#4a2a68" trailColor="#eeeaf0" />
-          <span className="progress-percent">71% funded</span>
+          <div className="progress-copy"><span>Donor participation</span><strong>{votes} <small>of {donorCount} registered donors voted</small></strong></div>
+          <Progress percent={participationPercent} showInfo={false} strokeColor="#4a2a68" trailColor="#eeeaf0" />
+          <span className="progress-percent">{participationPercent}% voted</span>
         </div>
-        <div className="project-facts"><div><span>Project lead</span><strong>Mei Chen</strong></div><div><span>Donor community</span><strong>24 contributors</strong></div><div><span>Next release</span><strong>Tranche 02 · $18,600</strong></div></div>
+        <div className="project-facts"><div><span>Project manager</span><strong>{snapshot ? shortAddress(snapshot.manager) : '—'}</strong></div><div><span>Current approvals</span><strong>{snapshot?.approvals ?? 0} of {donorCount}</strong></div><div><span>Current opposition</span><strong>{snapshot?.oppositions ?? 0} of {donorCount}</strong></div></div>
         <div className="panel-divider" />
-        <div className="table-heading"><div><h3>Funding schedule</h3><p>Milestone-based releases governed by shareholder votes.</p></div><Button className="secondary-button" icon={<BellOutlined />} onClick={onNotify}>Notify donors</Button></div>
+        <div className="table-heading">
+          <div><h3>Demo funding schedule</h3><p>Illustrative milestones; release status follows the live contract.</p></div>
+          {canNotify && (
+            <Button className="secondary-button" icon={<BellOutlined />} onClick={onNotify}>
+              Notify donors
+            </Button>
+          )}
+        </div>
         <div className="release-table">
           <div className="release-row release-header"><span>TRANCHE</span><span>FUNDING ITEM</span><span>AMOUNT</span><span>STATUS</span></div>
-          <div className="release-row"><span>01</span><span><strong>Water source assessment</strong><small>Field survey and site selection</small></span><span>$32,000</span><Tag color="success">Completed</Tag></div>
-          <div className="release-row"><span>02</span><span><strong>Water filtration equipment</strong><small>Procurement for three schools</small></span><span>$18,600</span><Tag color="gold">Voting · 1/3</Tag></div>
-          <div className="release-row"><span>03</span><span><strong>Installation & commissioning</strong><small>Installation, testing, handover</small></span><span>$24,000</span><Tag>Queued</Tag></div>
+          <div className="release-row"><span>01</span><span><strong>Water source assessment</strong><small>Field survey and site selection</small></span><span>$800 · 0.4 ETH</span>{releaseStatus(1)}</div>
+          <div className="release-row"><span>02</span><span><strong>Water filtration equipment</strong><small>Procurement for three schools</small></span><span>$800 · 0.4 ETH</span>{releaseStatus(2)}</div>
+          <div className="release-row"><span>03</span><span><strong>Installation & commissioning</strong><small>Installation, testing, handover</small></span><span>$400 · 0.2 ETH</span>{releaseStatus(3)}</div>
         </div>
       </Card>
-      <p className="prototype-note">Demo data only. Donor notifications and wallet transactions are not connected.</p>
+      <p className="prototype-note">USD uses a fixed demo rate of 1 ETH = $2,000. Project materials and milestone names are demo content; balances, tranche state, votes, and execution records come from the local smart contract.</p>
+    </>
+  )
+}
+
+function LiveDonorsView({ snapshot }: { snapshot: ChainSnapshot | null }) {
+  const donors = snapshot?.knownDonors ?? []
+  return (
+    <Card className="panel directory-panel" bordered>
+      <div className="table-heading directory-heading">
+        <div>
+          <h2>On-chain donor directory</h2>
+          <p>Registered donor wallets and their vote on the current proposal.</p>
+        </div>
+        <Tag color="purple">{snapshot?.donorCount ?? 0} registered</Tag>
+      </div>
+      <div className="donor-table">
+        <div className="donor-table-row donor-table-header">
+          <span>DONOR WALLET</span>
+          <span>ROLE</span>
+          <span>CURRENT PROPOSAL</span>
+        </div>
+        {donors.map((donor) => {
+          const vote = snapshot?.hasActiveProposal
+            ? donor.approved ? 'approve' : donor.opposed ? 'oppose' : null
+            : null
+          return (
+            <article className="donor-table-row" key={donor.address}>
+              <div className="donor-cell">
+                <span className="donor-avatar">{donor.label.slice(-1)}</span>
+                <span><strong>{donor.label}</strong><small>{donor.address}</small></span>
+              </div>
+              <strong className="contribution">On-chain donor</strong>
+              <div className="donor-approval">
+                <span>
+                  <strong>{snapshot?.hasActiveProposal ? 'Live contract vote' : 'No active proposal'}</strong>
+                  <small>{snapshot?.hasActiveProposal ? 'Recorded directly by the donor wallet' : 'Voting opens when the manager submits a proposal'}</small>
+                </span>
+                {snapshot?.hasActiveProposal && <VoteTag vote={vote} notified />}
+              </div>
+            </article>
+          )
+        })}
+        {snapshot && donors.length === 0 && <p className="empty-search">No wallet addresses have donated yet.</p>}
+        {!snapshot && <p className="empty-search">Loading donor state from the local contract…</p>}
+      </div>
+      <div className="table-bottom">
+        <span>Showing {donors.length} registered demo donors</span>
+        <span>The contract records the donor set but not each address's cumulative contribution.</span>
+      </div>
+    </Card>
+  )
+}
+
+function LiveApprovalFlowView({
+  snapshot,
+  onOpenContract,
+}: {
+  snapshot: ChainSnapshot | null
+  onOpenContract: () => void
+}) {
+  const hasActiveProposal = Boolean(snapshot?.hasActiveProposal)
+  const donorCount = snapshot?.donorCount ?? 0
+  const approvals = snapshot?.approvals ?? 0
+  const oppositions = snapshot?.oppositions ?? 0
+  const approvalMet = donorCount > 0 && approvals * 100 > donorCount * 50
+  const oppositionMet = donorCount > 0 && oppositions * 100 < donorCount * 30
+  const materialHref = approvalMaterialHref(snapshot?.proposedApprovalMaterialUri ?? '')
+  const rejection = snapshot
+    && snapshot.latestRejection?.tranche === snapshot.currentTranche
+    && !hasActiveProposal
+    ? snapshot.latestRejection
+    : null
+
+  return (
+    <>
+      {rejection && (
+        <Alert
+          className="rejection-notice"
+          type="error"
+          showIcon
+          message={`Payout proposal #${rejection.proposalId} was rejected`}
+          description={(
+            <div className="rejection-notice-copy">
+              <span>{rejection.purpose} · {formatUsdFromEth(rejection.amountEth)}</span>
+              <span>Final vote: {rejection.approvals} yes · {rejection.oppositions} no.</span>
+              <span>
+                {rejection.oppositions * 100 >= donorCount * 30
+                  ? 'Opposition reached or exceeded 30%.'
+                  : 'Voting ended without approval above 50%.'}
+                {' '}The manager can submit a revised proposal.
+              </span>
+              <code>{rejection.transactionHash}</code>
+            </div>
+          )}
+        />
+      )}
+      <section className="flow-banner">
+        <div>
+          <span className="flow-overline">CURRENT RELEASE · TRANCHE {snapshot ? String(snapshot.currentTranche).padStart(2, '0') : '—'}</span>
+          <h2>{hasActiveProposal ? snapshot?.proposedPurpose : 'No active payout proposal'}</h2>
+          <p>
+            {hasActiveProposal
+              ? `Recipient ${shortAddress(snapshot?.proposedRecipient)} · proposed by the contract manager`
+              : 'The manager can submit the next payout proposal after the current tranche is open.'}
+          </p>
+        </div>
+        <strong>{hasActiveProposal ? formatUsdFromEth(snapshot?.proposedAmountEth) : '—'} <small>{hasActiveProposal ? `${snapshot?.proposedAmountEth} test ETH` : 'No proposal'}</small></strong>
+      </section>
+      <div className="flow-layout">
+        <Card className="panel flow-panel" bordered>
+          <div className="table-heading">
+            <div><h3>On-chain approval flow</h3><p>Counts are read directly from the local contract.</p></div>
+            <span className="flow-counter">{approvals}<small> yes</small> · {oppositions}<small> no</small></span>
+          </div>
+          <Steps
+            className="flow-steps"
+            direction="vertical"
+            current={snapshot?.phase === 3 ? 2 : snapshot?.phase === 2 ? 2 : hasActiveProposal ? 1 : 0}
+            items={[
+              { title: 'Proposal and material submitted', description: hasActiveProposal ? `Proposal #${snapshot?.currentProposalId}` : 'Waiting for the manager', status: hasActiveProposal ? 'finish' : 'wait' },
+              { title: 'Donor vote', description: hasActiveProposal ? `Yes ${approvals}/${donorCount} · No ${oppositions}/${donorCount}` : 'No active proposal', status: snapshot?.phase === 2 ? 'finish' : snapshot?.phase === 1 ? 'process' : 'wait' },
+              { title: 'Payout execution', description: snapshot?.phase === 3 ? 'Payout sent; execution evidence pending' : snapshot?.phase === 2 ? 'Ready for the manager to execute' : 'Locked until thresholds are met', status: snapshot?.phase === 2 ? 'process' : snapshot?.phase === 3 ? 'finish' : 'wait' },
+            ]}
+          />
+          {hasActiveProposal && (
+            <div className="threshold-summary">
+              <Tag color={approvalMet ? 'success' : 'gold'}>Yes &gt; 50% · {approvalMet ? 'Met' : 'Not met'}</Tag>
+              <Tag color={oppositionMet ? 'success' : 'error'}>No &lt; 30% · {oppositionMet ? 'Met' : 'Exceeded'}</Tag>
+            </div>
+          )}
+          {hasActiveProposal && (
+            <div className="flow-donors">
+              <div className="flow-donor-row flow-donor-heading"><span>DONOR WALLET</span><span>ON-CHAIN DECISION</span></div>
+              {(snapshot?.knownDonors ?? []).map((donor) => (
+                <div className="flow-donor-row" key={donor.address}>
+                  <span className="donor-cell"><span className="donor-avatar">{donor.label.slice(-1)}</span><span><strong>{donor.label}</strong><small>{donor.address}</small></span></span>
+                  <VoteTag vote={donor.approved ? 'approve' : donor.opposed ? 'oppose' : null} notified />
+                </div>
+              ))}
+            </div>
+          )}
+          <Alert
+            className="flow-alert"
+            type={snapshot?.phase === 2 ? 'success' : snapshot?.phase === 3 ? 'info' : 'info'}
+            showIcon
+            message={hasActiveProposal
+              ? snapshot?.phase === 2
+                ? 'Thresholds met. The manager can execute the payout.'
+                : snapshot?.phase === 3
+                  ? 'Payout executed. Execution evidence is required before the next tranche.'
+                  : approvalMet && oppositionMet
+                    ? 'Both thresholds are met.'
+                    : 'The payout remains locked until both thresholds are met.'
+              : 'There is no active proposal to review.'}
+          />
+          <div className="flow-actions">
+            <p>Donor decisions are recorded by each wallet directly on the local contract.</p>
+            {materialHref && <Button href={materialHref} target="_blank" rel="noreferrer">Open approval material</Button>}
+          </div>
+        </Card>
+        <aside className="contract-shortcut">
+          <span className="shortcut-icon"><LockOutlined /></span>
+          <p className="eyebrow">ON-CHAIN ENFORCEMENT</p>
+          <h3>The contract enforces both voting thresholds.</h3>
+          <p>Release recipient, amount, purpose, and approval material hash are fixed when the proposal is created.</p>
+          <Button type="link" className="text-button" icon={<ArrowRightOutlined />} onClick={onOpenContract}>Open fund contract</Button>
+        </aside>
+      </div>
+    </>
+  )
+}
+
+function LiveContractView({ snapshot }: { snapshot: ChainSnapshot | null }) {
+  const [rulesOpen, setRulesOpen] = useState(false)
+  const votes = snapshot ? snapshot.approvals + snapshot.oppositions : 0
+
+  return (
+    <>
+      <section className="contract-overview">
+        <div className="contract-badge">GF</div>
+        <div className="contract-main">
+          <p className="eyebrow">DEPLOYED CONTRACT · LOCALHOST 31337</p>
+          <h2>Mountain School Water Access Fund</h2>
+          <code>{WELFARE_FUND_ADDRESS}</code>
+        </div>
+        <Tag className="status-pill" color="success" icon={<CheckCircleFilled />}>{phaseLabel(snapshot?.phase)}</Tag>
+      </section>
+      <section className="contract-metrics">
+        <Card><span>Contract balance</span><Statistic value={formatUsdFromEth(snapshot?.balanceEth)} /></Card>
+        <Card><span>Current tranche</span><Statistic value={snapshot?.currentTranche ?? '—'} formatter={(value) => String(value).padStart(2, '0')} /></Card>
+        <Card><span>Votes recorded</span><Statistic value={votes} suffix={` of ${snapshot?.donorCount ?? 0}`} /></Card>
+      </section>
+
+      <Card className="panel contract-rules" bordered>
+        <div className="rules-preview">
+          <span className="rules-preview-icon"><SafetyCertificateOutlined /></span>
+          <div><p className="eyebrow">SMART CONTRACT POLICY</p><h2>Release conditions</h2><p>Approval must exceed 50%, opposition must stay below 30%, and execution evidence is required before the next tranche.</p></div>
+          <Button type="primary" className="primary-button" icon={<ArrowRightOutlined />} onClick={() => setRulesOpen(true)}>View full-screen rules</Button>
+        </div>
+      </Card>
+
+      <Modal
+        open={rulesOpen}
+        onCancel={() => setRulesOpen(false)}
+        title={null}
+        footer={<Button type="primary" onClick={() => setRulesOpen(false)}>Close conditions</Button>}
+        closeIcon={<CloseOutlined />}
+        width="100vw"
+        className="release-modal"
+        style={{ top: 0, maxWidth: '100vw', paddingBottom: 0 }}
+      >
+        <div className="modal-policy-content">
+          <p className="eyebrow">MOUNTAIN SCHOOL WATER ACCESS FUND · LOCAL CONTRACT</p>
+          <h2>Release conditions</h2>
+          <p className="modal-intro">These rules govern when funds can leave the project contract. Each percentage is measured against all registered donor addresses.</p>
+          <div className="modal-rules">
+            {releaseRules.map((rule, index) => <Card className="modal-rule" key={rule.title}><span className="rule-number">0{index + 1}</span><div><h3>{rule.title}</h3><p>{rule.description}</p></div><CheckCircleFilled className="modal-rule-check" /></Card>)}
+          </div>
+          <Alert type="info" showIcon message="One address, one vote" description="Votes are not weighted by donation amount. New deposits are paused while a tranche is under review so the voting denominator cannot change." />
+        </div>
+      </Modal>
+
+      <Card className="panel event-panel" bordered>
+        <div className="table-heading">
+          <div><h3>Current on-chain record</h3><p>Latest contract state available to the frontend.</p></div>
+          <Tag color="gold">LOCALHOST 31337</Tag>
+        </div>
+        <div className="event-row"><span className="event-dot event-green"/><span><strong>Contract manager</strong><small>{snapshot?.manager ?? 'Loading…'}</small></span><span className="event-value">Immutable</span></div>
+        <div className="event-row"><span className="event-dot event-yellow"/><span><strong>Latest execution evidence</strong><small>{snapshot?.lastExecutionEvidenceHash ?? '—'}</small></span><span className="event-value">{snapshot?.lastExecutionEvidenceHash === `0x${'0'.repeat(64)}` ? 'Not submitted' : 'Recorded'}</span></div>
+      </Card>
+      <p className="prototype-note">This page uses the deployed local contract. A block explorer and historical event index are outside the current MVP.</p>
     </>
   )
 }
