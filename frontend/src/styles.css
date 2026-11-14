@@ -55,6 +55,7 @@ button { color: inherit; }
 .profile-row.ant-btn:hover .profile-avatar { background: var(--yellow); color: var(--purple-dark); }
 .profile-chevron { margin-left: auto; color: #b7adbf; font-size: 10px; }
 .profile-row.ant-btn:hover .profile-chevron { color: var(--yellow); }
+.profile-row.ant-btn:not(:disabled):not(.ant-btn-disabled):hover strong { color: var(--yellow); }
 .main-area { min-width: 0; }
 .topbar { height: 66px; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.76); }
 .breadcrumb { display: flex; align-items: center; gap: 10px; color: #918b96; font-size: 11px; }
