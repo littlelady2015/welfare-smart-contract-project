@@ -177,6 +177,8 @@ function App() {
       notificationApi.success({
         message: 'Notification sent successfully',
         placement: 'top',
+        duration: 3,
+        closable: false,
       })
     } catch (error) {
       setToast(error instanceof Error ? error.message : 'Unable to save donor notifications.')
