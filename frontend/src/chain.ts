@@ -47,8 +47,9 @@ const welfareFundAbi = [
   'function approvePayout()',
   'function opposePayout()',
   'function executePayout()',
-  'function confirmExecution(bytes32 evidenceHash)',
+  'function confirmExecution(bytes32 evidenceHash, string evidenceUri)',
   'function lastExecutionEvidenceHash() view returns (bytes32)',
+  'function lastExecutionEvidenceUri() view returns (string)',
   'function proposedAmount() view returns (uint256)',
   'function proposedRecipient() view returns (address)',
   'function proposedPurpose() view returns (string)',
@@ -62,6 +63,7 @@ const welfareFundAbi = [
   'function opposedForProposal(uint256 proposalId, address donor) view returns (bool)',
   'event PayoutProposed(uint256 indexed proposalId, uint256 indexed tranche, address indexed recipient, uint256 amount, string purpose, bytes32 approvalMaterialHash, string approvalMaterialUri)',
   'event PayoutRejected(uint256 indexed proposalId, uint256 indexed tranche, uint256 approvals, uint256 oppositions)',
+  'event ExecutionReported(uint256 indexed tranche, bytes32 evidenceHash, string evidenceUri)',
 ] as const
 
 type InjectedProvider = Eip1193Provider & {
@@ -95,6 +97,7 @@ export interface ChainSnapshot {
   recipientBalanceEth: string
   hasActiveProposal: boolean
   lastExecutionEvidenceHash: string
+  lastExecutionEvidenceUri: string
   currentProposalId: number
   approvals: number
   oppositions: number
@@ -255,6 +258,7 @@ async function readSnapshot(account: string | null): Promise<ChainSnapshot> {
     approvalMaterialHashValue,
     approvalMaterialUriValue,
     lastExecutionEvidenceHashValue,
+    lastExecutionEvidenceUriValue,
   ] = await Promise.all([
     readProvider.getBalance(WELFARE_FUND_ADDRESS),
     contract.donorCount() as Promise<bigint>,
@@ -272,6 +276,7 @@ async function readSnapshot(account: string | null): Promise<ChainSnapshot> {
     contract.proposedApprovalMaterialHash() as Promise<string>,
     contract.proposedApprovalMaterialUri() as Promise<string>,
     contract.lastExecutionEvidenceHash() as Promise<string>,
+    contract.lastExecutionEvidenceUri() as Promise<string>,
   ])
   const manager = getAddress(managerValue)
   const currentProposalId = Number(proposalIdValue)
@@ -356,6 +361,7 @@ async function readSnapshot(account: string | null): Promise<ChainSnapshot> {
     oppositions: Number(oppositionsValue),
     votes: Number(votesValue),
     lastExecutionEvidenceHash: lastExecutionEvidenceHashValue,
+    lastExecutionEvidenceUri: lastExecutionEvidenceUriValue,
     hasApproved,
     hasOpposed,
     knownDonors: knownDonors.filter((donor): donor is KnownChainDonor => donor !== null),
@@ -885,7 +891,7 @@ export function useLocalChainFund() {
     }
   }, [account, chainId, refresh, snapshot])
 
-  const confirmExecution = useCallback(async (evidenceHash: string) => {
+  const confirmExecution = useCallback(async (evidenceHash: string, evidenceUri: string) => {
     setWalletError('')
     setEvidenceTransaction(EMPTY_TRANSACTION)
 
@@ -907,11 +913,28 @@ export function useLocalChainFund() {
     }
 
     const normalizedHash = evidenceHash.trim().toLowerCase()
+    const normalizedUri = evidenceUri.trim()
     if (!/^0x[0-9a-f]{64}$/.test(normalizedHash) || normalizedHash === ZeroHash) {
       setEvidenceTransaction({
         status: 'error',
         hash: '',
         message: 'Verify a non-empty SHA-256 evidence hash before confirming execution.',
+      })
+      return
+    }
+    if (!normalizedUri) {
+      setEvidenceTransaction({
+        status: 'error',
+        hash: '',
+        message: 'Choose or verify an execution evidence file before continuing.',
+      })
+      return
+    }
+    if (normalizedUri.length > 512) {
+      setEvidenceTransaction({
+        status: 'error',
+        hash: '',
+        message: 'The execution evidence address is too long.',
       })
       return
     }
@@ -930,7 +953,7 @@ export function useLocalChainFund() {
       const provider = new BrowserProvider(injectedProvider(account), 'any')
       const signer = await provider.getSigner()
       const contract = new Contract(WELFARE_FUND_ADDRESS, welfareFundAbi, signer)
-      const response = await contract.confirmExecution(normalizedHash)
+      const response = await contract.confirmExecution(normalizedHash, normalizedUri)
       pendingHash = response.hash
       setEvidenceTransaction({
         status: 'pending',

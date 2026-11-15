@@ -146,8 +146,9 @@ VITE_LOCAL_RPC_URL=http://127.0.0.1:8545
 5. 切换到 Donor A，打开审批材料并核对哈希，然后点击 Approve。
 6. 确认一票时为 50%，状态仍为 Awaiting approval。
 7. 切换到 Donor B 并点击 Approve，确认进入 Ready to disburse。
-8. 切回 Manager，执行拨款并提交执行凭证哈希。
+8. 切回 Manager，执行拨款，使用内置样例执行凭证，并提交凭证哈希和公开访问标识。
 9. 确认 current tranche 增加，状态回到 Funding。
+10. 切换回 Donor A，打开执行凭证并重新核验链上哈希。
 
 详细预期结果见 [DEMO_ACCEPTANCE.md](DEMO_ACCEPTANCE.md)。
 
@@ -203,7 +204,7 @@ cd contracts
 forge test -vv
 ```
 
-当前预期结果：`7 passed, 0 failed`。
+当前预期结果：`8 passed, 0 failed`。
 
 前端构建：
 
@@ -219,7 +220,7 @@ npm run build
 - 只支持一个固定演示项目，不包含项目发布和多项目选择。
 - 金额前端固定按 `1 ETH = 2,000 USD` 展示，链上仍使用 test ETH。
 - 自定义审批材料只保存在当前浏览器；跨浏览器应使用内置样例。
-- 执行凭证只记录 SHA-256，没有文件存储或 IPFS 地址。
+- 执行凭证统一使用内置样例 `water-source-assessment.svg`，记录 SHA-256 和公开访问标识；没有使用自定义上传、IPFS 或对象存储。
 - Manager 捐款入口只在界面隐藏，合约仍允许 Manager 直接调用 `deposit()`。
 - 暂无投票截止、退款、稳定币、事件索引、正式通知和管理员多签。
 - 该系统适合课程项目的本地链 MVP 演示，不具备生产资金托管资质。

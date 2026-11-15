@@ -687,13 +687,13 @@ h2 { margin-bottom: 4px; font-size: 15px; font-weight: 600; line-height: 1.4; }
 }
 .live-primary-button.ant-btn:not(:disabled):hover { border-color: #37204f; background: #37204f; }
 .live-primary-button.ant-btn:disabled {
-  border-color: #7d668f;
-  background: var(--purple);
-  color: #fff !important;
-  opacity: .72;
+  border-color: #d5cfd9;
+  background: #ebe7ee;
+  color: #8b8390 !important;
+  opacity: 1;
 }
 .live-primary-button.ant-btn:disabled .anticon {
-  color: #fff !important;
+  color: #8b8390 !important;
 }
 .connected-wallet {
   display: grid;
@@ -1013,11 +1013,15 @@ h2 { margin-bottom: 4px; font-size: 15px; font-weight: 600; line-height: 1.4; }
   font-size: 8px;
   overflow-wrap: anywhere;
 }
+.evidence-readiness-alert.ant-alert {
+  margin-bottom: 10px;
+  font-size: 9px;
+}
 .evidence-confirm.ant-btn { width: 100%; }
 .evidence-confirmed-panel {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  justify-content: space-between;
   gap: 14px;
   margin-top: 12px;
   padding: 11px 13px;
@@ -1025,7 +1029,10 @@ h2 { margin-bottom: 4px; font-size: 15px; font-weight: 600; line-height: 1.4; }
   border-radius: 6px;
   background: #f4fbf6;
 }
-.evidence-confirmed-panel > div { min-width: 0; }
+.evidence-confirmed-copy { min-width: 0; }
+.evidence-confirmed-actions { display: flex; gap: 7px; }
+.evidence-confirmed-actions .ant-btn { font-size: 8px; }
+.evidence-confirmed-panel > .ant-alert { grid-column: 1 / -1; }
 .evidence-confirmed-panel span, .evidence-confirmed-panel code { display: block; }
 .evidence-confirmed-panel span { margin-bottom: 4px; color: #649072; font-size: 7px; }
 .evidence-confirmed-panel code {
@@ -1102,7 +1109,8 @@ h2 { margin-bottom: 4px; font-size: 15px; font-weight: 600; line-height: 1.4; }
   .local-wallet-control { grid-template-columns: 1fr; }
   .proposal-form-grid, .proposal-status { grid-template-columns: 1fr; }
   .evidence-hash-result { grid-template-columns: 1fr; }
-  .evidence-confirmed-panel { align-items: flex-start; flex-direction: column; }
+  .evidence-confirmed-panel { grid-template-columns: 1fr; align-items: flex-start; }
+  .evidence-confirmed-actions { flex-wrap: wrap; }
   .vote-thresholds, .vote-actions { grid-template-columns: 1fr; }
   .vote-actions { align-items: stretch; flex-direction: column; }
   .vote-buttons .ant-btn { flex: 1; }

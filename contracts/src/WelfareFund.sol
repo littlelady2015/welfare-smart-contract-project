@@ -24,6 +24,7 @@ contract WelfareFund {
     uint256 public votesForCurrentTranche;
     address payable public proposedRecipient;
     bytes32 public lastExecutionEvidenceHash;
+    string public lastExecutionEvidenceUri;
 
     mapping(address => bool) public isDonor;
     mapping(uint256 => mapping(address => bool)) public approvedForProposal;
@@ -54,7 +55,7 @@ contract WelfareFund {
         address indexed recipient,
         uint256 amount
     );
-    event ExecutionReported(uint256 indexed tranche, bytes32 evidenceHash);
+    event ExecutionReported(uint256 indexed tranche, bytes32 evidenceHash, string evidenceUri);
 
     modifier onlyManager() {
         require(msg.sender == manager, "not manager");
@@ -193,13 +194,21 @@ contract WelfareFund {
         emit PayoutExecuted(tranche, recipient, amount);
     }
 
-    function confirmExecution(bytes32 evidenceHash) external onlyManager nonReentrant {
+    function confirmExecution(
+        bytes32 evidenceHash,
+        string calldata evidenceUri
+    ) external onlyManager nonReentrant {
         require(phase == Phase.AwaitingExecutionReport, "no payout to report");
         require(evidenceHash != bytes32(0), "empty evidence hash");
+        require(
+            bytes(evidenceUri).length > 0 && bytes(evidenceUri).length <= 512,
+            "invalid evidence uri"
+        );
 
         uint256 completedTranche = currentTranche;
         lastExecutionEvidenceHash = evidenceHash;
-        emit ExecutionReported(completedTranche, evidenceHash);
+        lastExecutionEvidenceUri = evidenceUri;
+        emit ExecutionReported(completedTranche, evidenceHash, evidenceUri);
 
         currentTranche = completedTranche + 1;
         proposedAmount = 0;

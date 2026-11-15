@@ -15,6 +15,7 @@ contract WelfareFundTest {
     address private constant DONOR_B = address(0xB2);
     bytes32 private constant MATERIAL_HASH = keccak256("approval-material");
     string private constant MATERIAL_URI = "/evidence/procurement-quotation.svg";
+    string private constant EVIDENCE_URI = "/evidence/water-source-assessment.svg";
     string private constant PURPOSE = "Procurement of water filtration equipment for three schools";
 
     receive() external payable {}
@@ -51,9 +52,13 @@ contract WelfareFundTest {
         );
         require(!canSkipReport, "next payout opened before execution report");
 
-        fund.confirmExecution(keccak256("receipt-1"));
+        fund.confirmExecution(keccak256("receipt-1"), EVIDENCE_URI);
         require(fund.phase() == WelfareFund.Phase.Funding, "next tranche not opened");
         require(fund.currentTranche() == 2, "tranche counter not advanced");
+        require(
+            keccak256(bytes(fund.lastExecutionEvidenceUri())) == keccak256(bytes(EVIDENCE_URI)),
+            "execution evidence uri not recorded"
+        );
         require(fund.proposedApprovalMaterialHash() == bytes32(0), "approval material not cleared");
     }
 
@@ -137,6 +142,24 @@ contract WelfareFundTest {
         (bool succeeded, ) = address(fund).call(abi.encodeCall(fund.executePayout, ()));
         require(!succeeded, "payout executed before approval");
         require(fund.phase() == WelfareFund.Phase.AwaitingApproval, "invalid execution changed phase");
+    }
+
+    function testExecutionReportRequiresEvidenceUri() public {
+        fund.proposePayout(payable(address(this)), 0.5 ether, PURPOSE, MATERIAL_HASH, MATERIAL_URI);
+        vm.prank(DONOR_A);
+        fund.approvePayout();
+        vm.prank(DONOR_B);
+        fund.approvePayout();
+        fund.executePayout();
+
+        (bool succeeded, ) = address(fund).call(
+            abi.encodeCall(fund.confirmExecution, (keccak256("receipt-2"), ""))
+        );
+        require(!succeeded, "execution evidence accepted without uri");
+        require(
+            fund.phase() == WelfareFund.Phase.AwaitingExecutionReport,
+            "missing evidence changed phase"
+        );
     }
 
     function _fundWithDonors(uint256 count)

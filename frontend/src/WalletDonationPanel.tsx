@@ -11,7 +11,6 @@ import {
   SendOutlined,
   SwapOutlined,
   StopOutlined,
-  UploadOutlined,
   WalletOutlined,
 } from '@ant-design/icons'
 import {
@@ -26,9 +25,9 @@ import {
   type LocalChainFund,
 } from './chain'
 import {
-  approvalMaterialBlob,
-  approvalMaterialHref,
-  saveLocalApprovalMaterial,
+  materialBlob,
+  materialHref,
+  saveLocalMaterial,
 } from './approvalMaterialStore'
 
 const DEMO_PROJECT_NAME = 'Mountain School Water Access'
@@ -50,12 +49,22 @@ export function WalletDonationPanel({ wallet }: { wallet: LocalChainFund }) {
   const [approvalMaterialError, setApprovalMaterialError] = useState('')
   const [evidenceFileName, setEvidenceFileName] = useState('')
   const [evidenceHash, setEvidenceHash] = useState('')
+  const [evidenceUri, setEvidenceUri] = useState('')
   const [evidenceVerifying, setEvidenceVerifying] = useState(false)
   const [evidenceError, setEvidenceError] = useState('')
   const [materialVerification, setMaterialVerification] = useState<'idle' | 'verified' | 'mismatch' | 'error'>('idle')
+  const [confirmedEvidenceVerification, setConfirmedEvidenceVerification] = useState<'idle' | 'verified' | 'mismatch' | 'error'>('idle')
   const donationEth = demoEthFromUsd(donationUsd)
   const proposalEth = demoEthFromUsd(proposalUsd)
-  const proposalApprovalMaterialHref = approvalMaterialHref(wallet.snapshot?.proposedApprovalMaterialUri ?? '')
+  const proposalApprovalMaterialHref = materialHref(wallet.snapshot?.proposedApprovalMaterialUri ?? '')
+  const confirmedEvidenceHref = materialHref(wallet.snapshot?.lastExecutionEvidenceUri ?? '')
+  const approvalMaterialLabel = wallet.snapshot?.phase === 1
+    ? wallet.isManager
+      ? 'Submitted to donors'
+      : wallet.snapshot.isDonor
+        ? 'Review before voting'
+        : 'Submitted material'
+    : 'Submitted payout material'
   const canDonate = Boolean(wallet.account)
     && wallet.isCorrectNetwork
     && wallet.snapshot?.phase === 0
@@ -104,6 +113,10 @@ export function WalletDonationPanel({ wallet }: { wallet: LocalChainFund }) {
     setMaterialVerification('idle')
   }, [wallet.snapshot?.currentProposalId, wallet.snapshot?.proposedApprovalMaterialHash])
 
+  useEffect(() => {
+    setConfirmedEvidenceVerification('idle')
+  }, [wallet.snapshot?.lastExecutionEvidenceHash, wallet.snapshot?.lastExecutionEvidenceUri])
+
   async function sha256Blob(blob: Blob) {
     const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer())
     return `0x${Array.from(new Uint8Array(digest))
@@ -147,7 +160,7 @@ export function WalletDonationPanel({ wallet }: { wallet: LocalChainFund }) {
       }
       const hash = await sha256Blob(file)
       const dataUrl = await blobToDataUrl(file)
-      const uri = saveLocalApprovalMaterial({
+      const uri = saveLocalMaterial('approval', {
         hash,
         fileName: file.name,
         mimeType: file.type || 'application/octet-stream',
@@ -167,7 +180,7 @@ export function WalletDonationPanel({ wallet }: { wallet: LocalChainFund }) {
     if (!wallet.snapshot?.proposedApprovalMaterialUri) return
     setMaterialVerification('idle')
     try {
-      const blob = await approvalMaterialBlob(wallet.snapshot.proposedApprovalMaterialUri)
+      const blob = await materialBlob(wallet.snapshot.proposedApprovalMaterialUri)
       const actualHash = await sha256Blob(blob)
       setMaterialVerification(
         actualHash.toLowerCase() === wallet.snapshot.proposedApprovalMaterialHash.toLowerCase()
@@ -179,15 +192,17 @@ export function WalletDonationPanel({ wallet }: { wallet: LocalChainFund }) {
     }
   }
 
-  async function hashEvidence(blob: Blob, fileName: string) {
+  async function prepareEvidence(blob: Blob, fileName: string, uri: string) {
     setEvidenceVerifying(true)
     setEvidenceError('')
     try {
       setEvidenceHash(await sha256Blob(blob))
       setEvidenceFileName(fileName)
+      setEvidenceUri(uri)
     } catch (error) {
       setEvidenceHash('')
       setEvidenceFileName('')
+      setEvidenceUri('')
       setEvidenceError(error instanceof Error ? error.message : 'Unable to calculate the file hash.')
     } finally {
       setEvidenceVerifying(false)
@@ -198,12 +213,29 @@ export function WalletDonationPanel({ wallet }: { wallet: LocalChainFund }) {
     setEvidenceVerifying(true)
     setEvidenceError('')
     try {
-      const response = await fetch('/evidence/water-source-assessment.svg', { cache: 'no-store' })
+      const uri = '/evidence/water-source-assessment.svg'
+      const response = await fetch(uri, { cache: 'no-store' })
       if (!response.ok) throw new Error('Unable to load the sample evidence file.')
-      await hashEvidence(await response.blob(), 'water-source-assessment.svg')
+      await prepareEvidence(await response.blob(), 'water-source-assessment.svg', uri)
     } catch (error) {
       setEvidenceVerifying(false)
       setEvidenceError(error instanceof Error ? error.message : 'Unable to verify the sample evidence.')
+    }
+  }
+
+  async function verifyConfirmedEvidence() {
+    if (!wallet.snapshot?.lastExecutionEvidenceUri) return
+    setConfirmedEvidenceVerification('idle')
+    try {
+      const blob = await materialBlob(wallet.snapshot.lastExecutionEvidenceUri)
+      const actualHash = await sha256Blob(blob)
+      setConfirmedEvidenceVerification(
+        actualHash.toLowerCase() === wallet.snapshot.lastExecutionEvidenceHash.toLowerCase()
+          ? 'verified'
+          : 'mismatch',
+      )
+    } catch {
+      setConfirmedEvidenceVerification('error')
     }
   }
 
@@ -577,7 +609,7 @@ export function WalletDonationPanel({ wallet }: { wallet: LocalChainFund }) {
                 <h3>Payout approval material</h3>
                 <p>{wallet.snapshot.proposedPurpose}</p>
               </div>
-              <Tag color="purple">Review before voting</Tag>
+              <Tag color="purple">{approvalMaterialLabel}</Tag>
             </div>
             <div className="proposal-material-hash">
               <span>On-chain SHA-256</span>
@@ -653,7 +685,7 @@ export function WalletDonationPanel({ wallet }: { wallet: LocalChainFund }) {
             <span className="live-section-icon"><FileSearchOutlined /></span>
             <div>
               <h3>Execution evidence</h3>
-              <p>Verify the evidence file hash before opening the next tranche.</p>
+              <p>This MVP uses a built-in sample evidence file that remains accessible to every role.</p>
             </div>
             <Tag color="gold">Evidence required</Tag>
           </div>
@@ -664,18 +696,8 @@ export function WalletDonationPanel({ wallet }: { wallet: LocalChainFund }) {
               loading={evidenceVerifying}
               onClick={() => void verifySampleEvidence()}
             >
-              Verify sample file
+              Use built-in sample evidence
             </Button>
-            <Upload
-              accept=".pdf,.png,.jpg,.jpeg,.svg,.txt"
-              showUploadList={false}
-              beforeUpload={(file) => {
-                void hashEvidence(file, file.name)
-                return false
-              }}
-            >
-              <Button icon={<UploadOutlined />}>Choose evidence file</Button>
-            </Upload>
           </div>
 
           {evidenceError && <Alert type="error" showIcon message={evidenceError} />}
@@ -692,14 +714,22 @@ export function WalletDonationPanel({ wallet }: { wallet: LocalChainFund }) {
               </div>
             </div>
           )}
+          {!evidenceHash && (
+            <Alert
+              className="evidence-readiness-alert"
+              type="warning"
+              showIcon
+              message="Execution evidence is required before the contract can open the next tranche."
+            />
+          )}
 
           <Button
             type="primary"
             className="live-primary-button evidence-confirm"
             icon={wallet.evidenceSubmitting ? <LoadingOutlined /> : <CheckCircleFilled />}
-            disabled={!evidenceHash || evidenceVerifying}
+            disabled={!evidenceHash || !evidenceUri || evidenceVerifying}
             loading={wallet.evidenceSubmitting}
-            onClick={() => void wallet.confirmExecution(evidenceHash)}
+            onClick={() => void wallet.confirmExecution(evidenceHash, evidenceUri)}
           >
             {wallet.snapshot
               ? `Confirm execution & open tranche ${wallet.snapshot.currentTranche + 1}`
@@ -710,11 +740,40 @@ export function WalletDonationPanel({ wallet }: { wallet: LocalChainFund }) {
 
       {hasRecordedEvidence && wallet.snapshot?.phase === 0 && (
         <section className="evidence-confirmed-panel" aria-label="Confirmed execution evidence">
-          <div>
+          <div className="evidence-confirmed-copy">
             <span>Latest execution evidence</span>
             <code>{wallet.snapshot.lastExecutionEvidenceHash}</code>
           </div>
+          <div className="evidence-confirmed-actions">
+            <Button
+              href={confirmedEvidenceHref || undefined}
+              target="_blank"
+              rel="noreferrer"
+              disabled={!confirmedEvidenceHref}
+            >
+              Open execution evidence
+            </Button>
+            <Button onClick={() => void verifyConfirmedEvidence()}>
+              Verify on-chain hash
+            </Button>
+          </div>
           <Tag color="success">Tranche {wallet.snapshot.currentTranche} open</Tag>
+          {!confirmedEvidenceHref && (
+            <Alert
+              type="warning"
+              showIcon
+              message="This execution evidence file is not available in the current browser profile."
+            />
+          )}
+          {confirmedEvidenceVerification === 'verified' && (
+            <Alert type="success" showIcon message="Verified: the execution evidence matches the on-chain hash." />
+          )}
+          {confirmedEvidenceVerification === 'mismatch' && (
+            <Alert type="error" showIcon message="Mismatch: the execution evidence does not match the on-chain hash." />
+          )}
+          {confirmedEvidenceVerification === 'error' && (
+            <Alert type="error" showIcon message="The execution evidence could not be loaded or verified." />
+          )}
         </section>
       )}
 

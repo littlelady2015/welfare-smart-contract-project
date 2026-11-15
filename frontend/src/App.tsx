@@ -33,7 +33,7 @@ import {
   walletLabel,
   type ChainSnapshot,
 } from './chain'
-import { approvalMaterialHref } from './approvalMaterialStore'
+import { materialHref } from './approvalMaterialStore'
 import { WalletDonationPanel } from './WalletDonationPanel'
 
 type Workspace = 'donors' | 'projects' | 'approval-flow' | 'contract'
@@ -557,7 +557,7 @@ function LiveApprovalFlowView({
   const oppositions = snapshot?.oppositions ?? 0
   const approvalMet = donorCount > 0 && approvals * 100 > donorCount * 50
   const oppositionMet = donorCount > 0 && oppositions * 100 < donorCount * 30
-  const materialHref = approvalMaterialHref(snapshot?.proposedApprovalMaterialUri ?? '')
+  const materialLink = materialHref(snapshot?.proposedApprovalMaterialUri ?? '')
   const rejection = snapshot
     && snapshot.latestRejection?.tranche === snapshot.currentTranche
     && !hasActiveProposal
@@ -648,7 +648,7 @@ function LiveApprovalFlowView({
           />
           <div className="flow-actions">
             <p>Donor decisions are recorded by each wallet directly on the local contract.</p>
-            {materialHref && <Button href={materialHref} target="_blank" rel="noreferrer">Open approval material</Button>}
+            {materialLink && <Button href={materialLink} target="_blank" rel="noreferrer">Open approval material</Button>}
           </div>
         </Card>
         <aside className="contract-shortcut">

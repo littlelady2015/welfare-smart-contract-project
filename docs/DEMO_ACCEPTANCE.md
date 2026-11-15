@@ -28,8 +28,9 @@ MetaMask 使用同一个窗口切换账户：
 7. 确认赞成比例为 50%，状态仍为 `Awaiting approval`，拨款按钮不可执行。
 8. 切换到 Donor B 并点击 `Approve`。确认赞成比例为 100%，状态变为 `Ready to disburse`。
 9. 切回执行方，点击 `Execute payout`。确认状态变为 `Awaiting execution report`，合约余额减少 `$800`。
-10. 点击 `Verify sample file`，再点击 `Confirm execution & open tranche 2`。
-11. 确认状态回到 `Funding`、current tranche 为 2，并出现最新执行凭证哈希。
+10. 点击 `Use built-in sample evidence`，再点击 `Confirm execution & open tranche 2`。
+11. 确认状态回到 `Funding`、current tranche 为 2，并出现最新执行凭证。
+12. 切换回 Donor A，确认可以看到 `Open execution evidence`，点击后能打开凭证，并能用 `Verify on-chain hash` 得到 `Verified`。
 
 ## 失败场景
 
@@ -38,7 +39,7 @@ MetaMask 使用同一个窗口切换账户：
 - 提案被拒绝后，执行方首页和 Approval Flow 应显示最近一次拒通知，包括提案编号、用途、金额、赞成/反对票数、拒绝原因和交易哈希。
 - 执行前把提案金额设为 `5000 USD`，点击提案应显示超过合约余额的错误，链上状态不变。
 - 未达到投票阈值时，执行方不能执行拨款。
-- 拨款已执行但未提交执行凭证时，不能申请下一笔拨款。
+- 拨款已执行但未提交执行凭证哈希或访问标识时，`Confirm execution` 按钮应保持禁用，不能开放下一笔拨款。
 - 审批材料哈希与链上值不一致时，捐赠者页面应显示 `Mismatch`。
 
 ## 角色与页面检查
