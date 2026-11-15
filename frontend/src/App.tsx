@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Alert, Button, Card, Input, Modal, Progress, Statistic, Steps, Tag } from 'antd'
+import { Alert, Button, Card, Input, Modal, notification, Progress, Statistic, Steps, Tag } from 'antd'
 import {
   ArrowRightOutlined,
   AuditOutlined,
@@ -123,6 +123,7 @@ function App() {
   const [databaseReady, setDatabaseReady] = useState(false)
   const [databaseError, setDatabaseError] = useState('')
   const [toast, setToast] = useState('')
+  const [notificationApi, notificationContextHolder] = notification.useNotification()
   const largestDonor = donors.reduce<DonorRecord | null>(
     (largest, donor) => (!largest || donor.contribution > largest.contribution ? donor : largest),
     null,
@@ -188,7 +189,7 @@ function App() {
       return
     }
     try {
-      const count = await sendDonorNotifications({
+      await sendDonorNotifications({
         proposalId: CURRENT_PROPOSAL_ID,
         projectName: 'Mountain School Water Access',
         trancheNumber: 2,
@@ -197,7 +198,12 @@ function App() {
         message: 'Please review the completed project update and itemized supplier quotation before recording your decision.',
       })
       await refreshDonorData()
-      setToast(`Notification saved in this browser for ${count} donor accounts.`)
+      notificationApi.success({
+        message: 'Notification sent successfully',
+        placement: 'top',
+        duration: 3,
+        closable: false,
+      })
     } catch (error) {
       setToast(error instanceof Error ? error.message : 'Unable to save donor notifications.')
     }
@@ -251,6 +257,7 @@ function App() {
 
   return (
     <div className="app-shell">
+      {notificationContextHolder}
       <aside className="sidebar">
         <a className="brand" href="#workspace" aria-label="GoodFund home">
           <span className="brand-mark">G</span>
